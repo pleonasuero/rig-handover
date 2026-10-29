@@ -69,7 +69,7 @@ describe('digest page', () => {
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain('lane/sync');
-    expect(html).toContain("1 line(s) didn't parse");
+    expect(html).toContain('1 line didn&#39;t parse');
   });
 });
 
