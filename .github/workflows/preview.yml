@@ -1,0 +1,51 @@
+# Preview for review (ADR 0003): runs rig, saves /digest/2026-10-28 as one HTML file with a
+# command, and deploys it to GitHub Pages as an artifact. Nothing is committed. The marker comes
+# from the LANE_MARKER secret; delete the secret and run again to take it off the same link.
+name: preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Save /digest/2026-10-28 as one HTML file
+        env:
+          LANE_ID: lane-07
+          LANE_MARKER: ${{ secrets.LANE_MARKER }}
+          PORT: 8787
+        run: |
+          mkdir -p "$RUNNER_TEMP/preview"
+          pnpm start > "$RUNNER_TEMP/rig.log" 2>&1 &
+          curl -sf --retry 20 --retry-connrefused --retry-delay 1 \
+            -o "$RUNNER_TEMP/preview/index.html" http://127.0.0.1:8787/digest/2026-10-28
+          grep -q 'fixtures/refresh' "$RUNNER_TEMP/preview/index.html"
+          if grep -q '<span class="marker">no marker set</span>' "$RUNNER_TEMP/preview/index.html"; then
+            echo "banner: no marker set"
+          else
+            echo "banner: marker set"
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/preview
+          retention-days: 1
+      - id: deployment
+        uses: actions/deploy-pages@v4
